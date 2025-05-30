@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void searchProduct(String query) {
-    if (productData == null || query.isEmpty) {
+    if (productData == null || query.trim().isEmpty) {
       updateProductList();
       return;
     }
@@ -113,17 +113,13 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       products = selectedList.where((product) {
-        final name = product.name.toLowerCase();
-        final description = product.description.toLowerCase();
-        final tags = product.tags.map((t) => t.toLowerCase());
-
-        return keywords.any((keyword) =>
-        name.contains(keyword) ||
-            description.contains(keyword) ||
-            tags.any((tag) => tag.contains(keyword)));
+        final allText = '${product.name} ${product.description} ${product.tags.join(" ")}'.toLowerCase();
+        return keywords.any((keyword) => allText.contains(keyword));
       }).toList();
     });
   }
+
+
 
   void _updateQuantity(int index, bool increment) {
     setState(() {
