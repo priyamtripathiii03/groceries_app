@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:groceries_app/modal/modals.dart'; // jahan Product define hai
+import 'package:groceries_app/modal/modals.dart'; // where Product is defined
 
 class CartPage extends StatefulWidget {
   final List<Product> cartProducts;
-  final Map<int, int> quantities;
+  final Map<int, int> quantities; // key: product.id, value: quantity
 
   CartPage({required this.cartProducts, required this.quantities});
 
@@ -18,39 +18,35 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
+    // copy the data so we can mutate safely
     products = List<Product>.from(widget.cartProducts);
     quantities = Map<int, int>.from(widget.quantities);
   }
 
-  void _updateQuantity(int index, bool increment) {
+  void _updateQuantity(Product product, bool increment) {
     setState(() {
+      final currentQty = quantities[product.id] ?? 1;
       if (increment) {
-        quantities[index] = (quantities[index] ?? 1) + 1;
+        quantities[product.id] = currentQty + 1;
       } else {
-        if ((quantities[index] ?? 1) > 1) {
-          quantities[index] = (quantities[index] ?? 1) - 1;
+        if (currentQty > 1) {
+          quantities[product.id] = currentQty - 1;
         }
       }
     });
   }
 
-  void _removeProduct(int index) {
+  void _removeProduct(Product product) {
     setState(() {
-      products.removeAt(index);
-      quantities.remove(index);
-      // Re-map quantities after deletion to maintain proper indexing
-      Map<int, int> newQuantities = {};
-      for (int i = 0; i < products.length; i++) {
-        newQuantities[i] = quantities[i] ?? 1;
-      }
-      quantities = newQuantities;
+      products.removeWhere((p) => p.id == product.id);
+      quantities.remove(product.id);
     });
   }
 
   double getTotalPrice() {
     double total = 0;
-    for (int i = 0; i < products.length; i++) {
-      total += products[i].price * (quantities[i] ?? 1);
+    for (var product in products) {
+      total += product.price * (quantities[product.id] ?? 1);
     }
     return total;
   }
@@ -59,10 +55,7 @@ class _CartPageState extends State<CartPage> {
   Widget build(BuildContext context) {
     if (products.isEmpty) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text('Your Cart',style: TextStyle(color: Colors.white),),
-          backgroundColor: Colors.green,
-        ),
+        appBar: AppBar(title: Text('Your Cart'), backgroundColor: Colors.green),
         body: Center(
           child: Text(
             'Your cart is empty!',
@@ -74,15 +67,23 @@ class _CartPageState extends State<CartPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Your Cart'),
+        title: Text(
+          'Your Cart',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.green,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: ListView.builder(
         padding: EdgeInsets.all(16),
         itemCount: products.length,
         itemBuilder: (context, index) {
           final product = products[index];
-          final quantity = quantities[index] ?? 1;
+          final quantity = quantities[product.id] ?? 1;
 
           return Container(
             margin: EdgeInsets.only(bottom: 12),
@@ -150,7 +151,7 @@ class _CartPageState extends State<CartPage> {
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: () => _updateQuantity(index, false),
+                      onTap: () => _updateQuantity(product, false),
                       child: Container(
                         width: 30,
                         height: 30,
@@ -158,7 +159,11 @@ class _CartPageState extends State<CartPage> {
                           color: Colors.green[100],
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(Icons.remove, size: 16, color: Colors.green[800]),
+                        child: Icon(
+                          Icons.remove,
+                          size: 16,
+                          color: Colors.green[800],
+                        ),
                       ),
                     ),
                     SizedBox(width: 8),
@@ -172,7 +177,7 @@ class _CartPageState extends State<CartPage> {
                     ),
                     SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () => _updateQuantity(index, true),
+                      onTap: () => _updateQuantity(product, true),
                       child: Container(
                         width: 30,
                         height: 30,
@@ -180,12 +185,16 @@ class _CartPageState extends State<CartPage> {
                           color: Colors.green[100],
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(Icons.add, size: 16, color: Colors.green[800]),
+                        child: Icon(
+                          Icons.add,
+                          size: 16,
+                          color: Colors.green[800],
+                        ),
                       ),
                     ),
                     SizedBox(width: 12),
                     GestureDetector(
-                      onTap: () => _removeProduct(index),
+                      onTap: () => _removeProduct(product),
                       child: Icon(Icons.delete, color: Colors.redAccent),
                     ),
                   ],
@@ -200,7 +209,11 @@ class _CartPageState extends State<CartPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, -2),
+            ),
           ],
         ),
         child: Row(
@@ -217,7 +230,11 @@ class _CartPageState extends State<CartPage> {
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Checkout functionality not implemented yet!')),
+                  SnackBar(
+                    content: Text(
+                      'Checkout functionality not implemented yet!',
+                    ),
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -228,7 +245,7 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
               child: Text('Checkout', style: TextStyle(fontSize: 16)),
-            )
+            ),
           ],
         ),
       ),

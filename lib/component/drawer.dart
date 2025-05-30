@@ -157,9 +157,7 @@ class DrawerPage extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CartPage(
-                            cartProducts: selectedProducts,
-                            quantities: selectedQuantities,
+                          builder: (_) => CartPage(cartProducts: [], quantities: {},
                           ),
                         ),
                       );

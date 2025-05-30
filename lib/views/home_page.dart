@@ -19,6 +19,7 @@ class _HomePageState extends State<HomePage> {
   bool _isListening = false;
   String _spokenText = 'Say something...';
   Map<int, int> quantities = {};
+  String selectedLanguage = 'English';
 
   @override
   void initState() {
@@ -31,16 +32,32 @@ class _HomePageState extends State<HomePage> {
       final data = await rootBundle.loadString('assets/path.json');
       final Map<String, dynamic> jsonMap = jsonDecode(data);
       productData = ProductData.fromJson(jsonMap);
-
-      setState(() {
-        products = productData!.english;
-        for (int i = 0; i < products.length; i++) {
-          quantities[i] = 1;
-        }
-      });
+      updateProductList();
     } catch (e) {
       print("Error loading data: $e");
     }
+  }
+
+  void updateProductList() {
+    if (productData == null) return;
+
+    List<Product> langProducts;
+    switch (selectedLanguage) {
+      case 'Hindi':
+        langProducts = productData!.hindi;
+        break;
+      case 'Gujarati':
+        langProducts = productData!.gujrati;
+        break;
+      default:
+        langProducts = productData!.english;
+        break;
+    }
+
+    setState(() {
+      products = langProducts;
+      quantities = {for (int i = 0; i < products.length; i++) i: 1};
+    });
   }
 
   void _startListening() async {
@@ -57,10 +74,8 @@ class _HomePageState extends State<HomePage> {
       });
     } else {
       setState(() => _isListening = false);
-      // Show an error Snackbar or message
     }
   }
-
 
   void _stopListening() {
     _speechToText.stop();
@@ -69,35 +84,40 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// 🔁 Modified to handle multiple words/phrases in search (voice or text)
   void searchProduct(String query) {
-    if (productData == null) return;
+    if (productData == null || query.isEmpty) {
+      updateProductList();
+      return;
+    }
+
+    List<Product> selectedList;
+    switch (selectedLanguage) {
+      case 'Hindi':
+        selectedList = productData!.hindi;
+        break;
+      case 'Gujarati':
+        selectedList = productData!.gujrati;
+        break;
+      default:
+        selectedList = productData!.english;
+    }
+
+    // 🔁 Split voice input by comma or space for multi-word search
+    final keywords = query.toLowerCase().split(RegExp(r'[,\s]+')).where((word) => word.trim().isNotEmpty).toList();
 
     setState(() {
-      if (query.isEmpty) {
-        products = [...productData!.english];
-      } else {
-        List<Product> filteredProducts = [];
+      products = selectedList.where((product) {
+        final name = product.name.toLowerCase();
+        final description = product.description.toLowerCase();
+        final tags = product.tags.map((t) => t.toLowerCase());
 
-        filteredProducts.addAll(productData!.english.where((product) =>
-        product.name.toLowerCase().contains(query.toLowerCase()) ||
-            product.description.toLowerCase().contains(query.toLowerCase()) ||
-            product.tags.any((tag) =>
-                tag.toLowerCase().contains(query.toLowerCase()))));
-
-        filteredProducts.addAll(productData!.hindi.where((product) =>
-        product.name.toLowerCase().contains(query.toLowerCase()) ||
-            product.description.toLowerCase().contains(query.toLowerCase()) ||
-            product.tags.any((tag) =>
-                tag.toLowerCase().contains(query.toLowerCase()))));
-
-        filteredProducts.addAll(productData!.gujrati.where((product) =>
-        product.name.toLowerCase().contains(query.toLowerCase()) ||
-            product.description.toLowerCase().contains(query.toLowerCase()) ||
-            product.tags.any((tag) =>
-                tag.toLowerCase().contains(query.toLowerCase()))));
-
-        products = filteredProducts;
-      }
+        return keywords.any((keyword) =>
+        name.contains(keyword) ||
+            description.contains(keyword) ||
+            tags.any((tag) => tag.contains(keyword))
+        );
+      }).toList();
     });
   }
 
@@ -117,45 +137,49 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: DrawerPage(context: context, products: products, quantities: quantities),
-      // Added Drawer here
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.green,
         elevation: 0,
         leading: Builder(
-          builder: (context) =>
-              IconButton(
-                icon: Icon(Icons.menu, color: Colors.white),
-                onPressed: () {
-                  Scaffold.of(context).openDrawer();
-                },
-              ),
-        ),
-        title: Text(
-          'Grocery App',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
+        title: Text('Grocery App',
+          style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+        ),
         actions: [
-          IconButton(
-              icon: Icon(Icons.notifications_outlined, color: Colors.white),
-              onPressed: () {}),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.language, color: Colors.white),
+            onSelected: (String value) {
+              setState(() {
+                selectedLanguage = value;
+                updateProductList();
+              });
+            },
+            itemBuilder: (BuildContext context) {
+              return ['English', 'Hindi', 'Gujarati'].map((String choice) {
+                return PopupMenuItem<String>(
+                  value: choice,
+                  child: Text(choice),
+                );
+              }).toList();
+            },
+          ),
+          IconButton(icon: Icon(Icons.notifications_outlined, color: Colors.white), onPressed: () {}),
           IconButton(
             icon: Icon(Icons.shopping_cart_outlined, color: Colors.white),
             onPressed: () {
               List<Product> selectedProducts = [];
               Map<int, int> selectedQuantities = {};
-
               quantities.forEach((index, qty) {
                 if (qty > 0) {
                   selectedProducts.add(products[index]);
                   selectedQuantities[selectedProducts.length - 1] = qty;
                 }
               });
-
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -167,8 +191,6 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
-          IconButton(icon: Icon(Icons.more_vert, color: Colors.white),
-              onPressed: () {}),
         ],
       ),
       body: Column(
@@ -178,31 +200,19 @@ class _HomePageState extends State<HomePage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: Offset(0, 2),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), spreadRadius: 1, blurRadius: 5, offset: Offset(0, 2))],
             ),
             child: TextField(
               onChanged: (query) => searchProduct(query),
               decoration: InputDecoration(
-                hintText: 'Search Product Like sugar...',
-                hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                hintText: 'Search products like "cheeni chawal tel"...',
                 prefixIcon: Icon(Icons.search, color: Colors.green),
                 suffixIcon: IconButton(
-                  icon: Icon(
-                    _isListening ? Icons.mic : Icons.mic_none,
-                    color: _isListening ? Colors.red : Colors.green,
-                  ),
+                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : Colors.green),
                   onPressed: _isListening ? _stopListening : _startListening,
                 ),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                    vertical: 15, horizontal: 20),
+                contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
               ),
             ),
           ),
@@ -215,10 +225,7 @@ class _HomePageState extends State<HomePage> {
                 return Container(
                   width: 60,
                   height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
+                  decoration: BoxDecoration(color: Colors.green, shape: BoxShape.circle),
                 );
               }),
             ),
@@ -226,21 +233,14 @@ class _HomePageState extends State<HomePage> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(16),
-            child: Text(
-              'Most Selling Product',
-              style: TextStyle(fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green[800]),
+            child: Text('Most Selling Product',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.green[800]),
             ),
           ),
           Expanded(
             child: products.isEmpty
-                ? Center(
-              child: Text(
-                'No products found, try searching!',
-                style: TextStyle(fontSize: 16, color: Colors.green[300]),
-              ),
-            )
+                ? Center(child: Text('No products found, try speaking clearly or using another language!',
+                style: TextStyle(fontSize: 16, color: Colors.green[300])))
                 : ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: 16),
               itemCount: products.length,
@@ -252,14 +252,7 @@ class _HomePageState extends State<HomePage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.green.withOpacity(0.1),
-                        spreadRadius: 1,
-                        blurRadius: 5,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), spreadRadius: 1, blurRadius: 5, offset: Offset(0, 2))],
                   ),
                   child: Row(
                     children: [
@@ -278,8 +271,7 @@ class _HomePageState extends State<HomePage> {
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 color: Colors.green[50],
-                                child: Icon(
-                                    Icons.image, color: Colors.green[200]),
+                                child: Icon(Icons.image, color: Colors.green[200]),
                               );
                             },
                           ),
@@ -290,53 +282,25 @@ class _HomePageState extends State<HomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${product.name} (${product.description})',
-                              style: TextStyle(fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black),
-                            ),
+                            Text('${product.name} (${product.description})',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                             SizedBox(height: 4),
-                            Text(
-                              '₹ ${product.price}',
-                              style: TextStyle(fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black54),
-                            ),
+                            Text('₹ ${product.price}',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54)),
                             SizedBox(height: 2),
-                            Text(
-                              product.priceTagline,
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.grey),
-                            ),
+                            Text(product.priceTagline, style: TextStyle(fontSize: 12, color: Colors.grey)),
                           ],
                         ),
                       ),
-                      Column(
-                        children: [
-                          SizedBox(height: 8),
-                        ],
-                      ),
-                      SizedBox(width: 12),
                       IconButton(
                         icon: Icon(Icons.shopping_cart_outlined, color: Colors.green),
                         onPressed: () {
-                          List<Product> selectedProducts = [];
-                          Map<int, int> selectedQuantities = {};
-
-                          quantities.forEach((index, qty) {
-                            if (qty > 0) {
-                              selectedProducts.add(products[index]);
-                              selectedQuantities[selectedProducts.length - 1] = qty;
-                            }
-                          });
-
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => CartPage(
-                                cartProducts: selectedProducts,
-                                quantities: selectedQuantities,
+                                cartProducts: [product],
+                                quantities: {0: 1},
                               ),
                             ),
                           );
@@ -379,8 +343,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               IconButton(icon: Icon(Icons.home), onPressed: () {}),
               IconButton(icon: Icon(Icons.person), onPressed: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (context) => ProfilePage()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage()));
               }),
             ],
           ),
@@ -388,4 +351,4 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  }
+}
