@@ -21,6 +21,9 @@ class _HomePageState extends State<HomePage> {
   Map<int, int> quantities = {};
   String selectedLanguage = 'English';
 
+  /// ✅ TextEditingController for input field
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +70,10 @@ class _HomePageState extends State<HomePage> {
       _speechToText.listen(onResult: (result) {
         setState(() {
           _spokenText = result.recognizedWords;
+          _searchController.text = _spokenText;
+          _searchController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _searchController.text.length),
+          );
           if (_spokenText.isNotEmpty) {
             searchProduct(_spokenText);
           }
@@ -84,7 +91,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// 🔁 Modified to handle multiple words/phrases in search (voice or text)
   void searchProduct(String query) {
     if (productData == null || query.isEmpty) {
       updateProductList();
@@ -103,7 +109,6 @@ class _HomePageState extends State<HomePage> {
         selectedList = productData!.english;
     }
 
-    // 🔁 Split voice input by comma or space for multi-word search
     final keywords = query.toLowerCase().split(RegExp(r'[,\s]+')).where((word) => word.trim().isNotEmpty).toList();
 
     setState(() {
@@ -115,8 +120,7 @@ class _HomePageState extends State<HomePage> {
         return keywords.any((keyword) =>
         name.contains(keyword) ||
             description.contains(keyword) ||
-            tags.any((tag) => tag.contains(keyword))
-        );
+            tags.any((tag) => tag.contains(keyword)));
       }).toList();
     });
   }
@@ -134,6 +138,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: DrawerPage(context: context, products: products, quantities: quantities),
@@ -147,7 +157,8 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        title: Text('Grocery App',
+        title: Text(
+          'Grocery App',
           style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -203,12 +214,14 @@ class _HomePageState extends State<HomePage> {
               boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.1), spreadRadius: 1, blurRadius: 5, offset: Offset(0, 2))],
             ),
             child: TextField(
+              controller: _searchController,
               onChanged: (query) => searchProduct(query),
               decoration: InputDecoration(
                 hintText: 'Search products like "cheeni chawal tel"...',
                 prefixIcon: Icon(Icons.search, color: Colors.green),
                 suffixIcon: IconButton(
-                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none, color: _isListening ? Colors.red : Colors.green),
+                  icon: Icon(_isListening ? Icons.mic : Icons.mic_none,
+                      color: _isListening ? Colors.red : Colors.green),
                   onPressed: _isListening ? _stopListening : _startListening,
                 ),
                 border: InputBorder.none,
@@ -233,14 +246,19 @@ class _HomePageState extends State<HomePage> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(16),
-            child: Text('Most Selling Product',
+            child: Text(
+              'Most Selling Product',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.green[800]),
             ),
           ),
           Expanded(
             child: products.isEmpty
-                ? Center(child: Text('No products found, try speaking clearly or using another language!',
-                style: TextStyle(fontSize: 16, color: Colors.green[300])))
+                ? Center(
+              child: Text(
+                'No products found, try speaking clearly or using another language!',
+                style: TextStyle(fontSize: 16, color: Colors.green[300]),
+              ),
+            )
                 : ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: 16),
               itemCount: products.length,
@@ -342,9 +360,12 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(icon: Icon(Icons.home), onPressed: () {}),
-              IconButton(icon: Icon(Icons.person), onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage()));
-              }),
+              IconButton(
+                icon: Icon(Icons.person),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage()));
+                },
+              ),
             ],
           ),
         ),
